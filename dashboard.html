@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EXIF Inspector</title>
+  <style>
+    :root {
+      --bg: #0d0f14;
+      --surface: #13161e;
+      --card: #181c26;
+      --border: #262c3d;
+      --accent: #4f8ef7;
+      --accent-dim: #1a2a4a;
+      --green: #3dd68c;
+      --green-dim: #112b20;
+      --amber: #f5a623;
+      --amber-dim: #2d2008;
+      --red: #f05252;
+      --red-dim: #2d1010;
+      --text: #e4e8f0;
+      --text-muted: #7b849a;
+      --text-dim: #4a5068;
+      --font-mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      --radius: 8px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      min-height: 100vh;
+      padding: 0;
+    }
+
+    /* ─── Header ─────────────────────────────────────────────── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 32px; height: 32px;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent);
+      border-radius: var(--radius);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+
+    .logo-text {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: 0.04em;
+    }
+
+    .logo-text span { color: var(--accent); }
+
+    .header-badge {
+      margin-left: auto;
+      font-size: 10px;
+      padding: 3px 8px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+    }
+
+    /* ─── Main Layout ─────────────────────────────────────────── */
+    main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 32px 24px;
+    }
+
+    /* ─── Upload Zone ─────────────────────────────────────────── */
+    .upload-zone {
+      border: 1.5px dashed var(--border);
+      border-radius: 12px;
+      padding: 48px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      background: var(--surface);
+      position: relative;
+    }
+
+    .upload-zone:hover, .upload-zone.dragover {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    .upload-zone input[type="file"] {
+      position: absolute; inset: 0;
+      opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+
+    .upload-icon { font-size: 36px; margin-bottom: 12px; }
+
+    .upload-label {
+      font-size: 14px;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    .upload-label span { color: var(--accent); }
+
+    .upload-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* ─── Status bar ──────────────────────────────────────────── */
+    .status-bar {
+      margin: 16px 0;
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      font-size: 12px;
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-bar.loading {
+      display: flex;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+    }
+
+    .status-bar.error {
+      display: flex;
+      background: var(--red-dim);
+      border: 1px solid var(--red);
+      color: var(--red);
+    }
+
+    .spinner {
+      width: 12px; height: 12px;
+      border: 2px solid var(--accent);
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── Results Grid ────────────────────────────────────────── */
+    #results { display: none; }
+
+    .section-label {
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      margin: 28px 0 10px;
+    }
+
+    /* Risk banner */
+    .risk-banner {
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      border-left: 3px solid;
+      margin-bottom: 8px;
+    }
+
+    .risk-banner.low    { background: var(--green-dim); border-color: var(--green); }
+    .risk-banner.medium { background: var(--amber-dim); border-color: var(--amber); }
+    .risk-banner.high   { background: var(--red-dim);   border-color: var(--red);   }
+
+    .risk-title {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .risk-banner.low    .risk-title { color: var(--green); }
+    .risk-banner.medium .risk-title { color: var(--amber); }
+    .risk-banner.high   .risk-title { color: var(--red);   }
+
+    .risk-item {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin: 4px 0;
+      padding-left: 4px;
+    }
+
+    /* Stat cards */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+    }
+
+    .stat-label {
+      font-size: 10px;
+      color: var(--text-dim);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .stat-value {
+      font-size: 15px;
+      color: var(--text);
+      font-weight: 600;
+      word-break: break-all;
+    }
+
+    .stat-value.accent { color: var(--accent); }
+
+    /* Metadata table */
+    .meta-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .meta-table tr:not(:last-child) {
+      border-bottom: 1px solid var(--border);
+    }
+
+    .meta-table td {
+      padding: 9px 14px;
+      vertical-align: top;
+    }
+
+    .meta-table td:first-child {
+      color: var(--text-muted);
+      width: 38%;
+      font-size: 11px;
+      padding-right: 8px;
+    }
+
+    .meta-table td:last-child {
+      color: var(--text);
+      font-size: 12px;
+      word-break: break-word;
+    }
+
+    .meta-table tr:hover { background: rgba(79, 142, 247, 0.04); }
+
+    /* GPS block */
+    .gps-block {
+      background: var(--card);
+      border: 1px solid var(--accent);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+
+    .gps-coords {
+      display: flex; gap: 16px; flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .gps-coord-item { display: flex; flex-direction: column; gap: 3px; }
+    .gps-coord-label { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; }
+    .gps-coord-val   { font-size: 14px; color: var(--accent); font-weight: 600; }
+
+    .gps-link {
+      display: inline-block;
+      font-size: 12px;
+      color: var(--accent);
+      text-decoration: none;
+      border: 1px solid var(--accent);
+      padding: 6px 14px;
+      border-radius: var(--radius);
+      margin-top: 4px;
+      transition: background 0.15s;
+    }
+
+    .gps-link:hover { background: var(--accent-dim); }
+
+    /* Empty GPS */
+    .gps-empty {
+      color: var(--text-muted);
+      font-size: 12px;
+      padding: 12px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+
+    /* Raw JSON toggle */
+    .raw-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 11px;
+      user-select: none;
+      margin-top: 28px;
+    }
+
+    .raw-toggle:hover { color: var(--text); }
+
+    .raw-block {
+      display: none;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-top: 10px;
+      overflow-x: auto;
+      font-size: 11px;
+      line-height: 1.7;
+      color: var(--text-muted);
+      max-height: 360px;
+      overflow-y: auto;
+    }
+
+    .raw-block.visible { display: block; }
+
+    .btn-erase {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid var(--red);
+  color: var(--red);
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  margin-bottom: 12px;
+  transition: background 0.15s;
+}
+
+.btn-erase:hover { background: var(--red-dim); }
+.btn-erase:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.erase-status {
+  font-size: 12px;
+  margin-top: 6px;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  display: none;
+}
+
+.erase-status.success {
+  display: block;
+  background: var(--green-dim);
+  border: 1px solid var(--green);
+  color: var(--green);
+}
+
+.erase-status.error {
+  display: block;
+  background: var(--red-dim);
+  border: 1px solid var(--red);
+  color: var(--red);
+}
+    /* Reset button */
+    .btn-reset {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 8px 16px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      margin-top: 28px;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .btn-reset:hover { border-color: var(--text); color: var(--text); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-icon">🔍</div>
+  <div class="logo-text">EXIF<span>Inspector</span></div>
+  <div class="header-badge">v1.0.0 · LOCAL</div>
+</header>
+
+<main>
+
+  <!-- Upload zone -->
+  <div class="upload-zone" id="uploadZone">
+    <input type="file" id="fileInput" accept="image/*" />
+    <div class="upload-icon">📁</div>
+    <div class="upload-label">Drop an image here or <span>browse files</span></div>
+    <div class="upload-hint">JPG · PNG · TIFF · WEBP · BMP — max 20 MB</div>
+  </div>
+
+  <!-- Status bar -->
+  <div class="status-bar" id="statusBar">
+    <div class="spinner" id="statusSpinner"></div>
+    <span id="statusText">Analyzing...</span>
+  </div>
+
+  <!-- Results -->
+  <div id="results">
+
+    <div class="section-label">Privacy risk</div>
+    <div id="riskBanner"></div>
+
+    <div class="section-label">File & image</div>
+    <div class="stat-grid" id="statGrid"></div>
+
+    <div class="section-label">Camera & capture</div>
+    <div id="exifTable"></div>
+
+    <div class="section-label">GPS location</div>
+    <div id="gpsBlock"></div>
+
+    <div class="section-label">actions</div>
+<div id="eraseSection">
+  <button class="btn-erase" id="eraseBtn" onclick="eraseMetadata()">
+    🧹 Erase metadata &amp; download clean image
+  </button>
+  <div class="erase-status" id="eraseStatus"></div>
+</div>
+    <div class="raw-toggle" id="rawToggle" onclick="toggleRaw()">
+      ▶ Show raw JSON
+    </div>
+    <pre class="raw-block" id="rawBlock"></pre>
+
+    <button class="btn-reset" onclick="reset()">↩ Analyze another image</button>
+  </div>
+
+</main>
+
+<script>
+  const fileInput  = document.getElementById('fileInput');
+  const uploadZone = document.getElementById('uploadZone');
+  const statusBar  = document.getElementById('statusBar');
+  const statusSpinner = document.getElementById('statusSpinner');
+  const statusText = document.getElementById('statusText');
+  const results    = document.getElementById('results');
+
+  let rawData = null;
+
+  // ── Drag & drop ───────────────────────────────────────────────
+  uploadZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    uploadZone.classList.add('dragover');
+  });
+  uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+  uploadZone.addEventListener('drop', e => {
+    e.preventDefault();
+    uploadZone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) analyze(file);
+  });
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) analyze(fileInput.files[0]);
+  });
+
+  // ── Analyze ───────────────────────────────────────────────────
+  async function analyze(file) {
+    showStatus('loading', `Analyzing ${file.name}…`);
+    results.style.display = 'none';
+    uploadZone.style.display = 'none';
+
+    const form = new FormData();
+    form.append('image', file);
+
+    try {
+      const res  = await fetch('/analyze', { method: 'POST', body: form });
+      const data = await res.json();
+
+      if (data.error) {
+        showStatus('error', '⚠ ' + data.error);
+        uploadZone.style.display = 'block';
+        return;
+      }
+
+      lastUploadedFile = file;
+
+      rawData = data;
+      hideStatus();
+      render(data);
+    } catch (err) {
+      showStatus('error', '⚠ Could not reach server. Is app.py running?');
+      uploadZone.style.display = 'block';
+    }
+  }
+
+  // ── Render results ────────────────────────────────────────────
+  function render(d) {
+    // Risk banner
+    const risk  = d.privacy_risk || {};
+    const level = (risk.level || 'low').toLowerCase();
+    const riskColors = { low: '#3dd68c', medium: '#f5a623', high: '#f05252' };
+    document.getElementById('riskBanner').innerHTML = `
+      <div class="risk-banner ${level}">
+        <div class="risk-title">Risk level: ${risk.level || 'Unknown'}</div>
+        ${(risk.details || []).map(r => `<div class="risk-item">${r}</div>`).join('')}
+      </div>`;
+
+    // Stat cards
+    const fi = d.file_info  || {};
+    const ii = d.image_info || {};
+    const stats = [
+      { label: 'Filename',    value: fi.filename    || '—' },
+      { label: 'Format',      value: fi.extension   || ii.format || '—', cls: 'accent' },
+      { label: 'File size',   value: fi.size_kb ? fi.size_kb + ' KB' : '—' },
+      { label: 'Dimensions',  value: ii.width_px ? `${ii.width_px} × ${ii.height_px}` : '—' },
+      { label: 'Megapixels',  value: ii.megapixels != null ? ii.megapixels + ' MP' : '—' },
+      { label: 'Color mode',  value: ii.mode || '—' },
+      { label: 'DPI',         value: ii.dpi  || '—' },
+      { label: 'Modified',    value: fi.modified || '—' },
+    ];
+    document.getElementById('statGrid').innerHTML = stats.map(s =>
+      `<div class="stat-card">
+        <div class="stat-label">${s.label}</div>
+        <div class="stat-value ${s.cls || ''}">${s.value}</div>
+      </div>`
+    ).join('');
+
+    // EXIF table
+    const exif = d.exif || {};
+    const exifKeys = Object.keys(exif);
+    document.getElementById('exifTable').innerHTML = exifKeys.length ? `
+      <table class="meta-table">
+        ${exifKeys.map(k =>
+          `<tr><td>${k}</td><td>${formatExifVal(k, exif[k])}</td></tr>`
+        ).join('')}
+      </table>` : `<div class="gps-empty">No EXIF camera data found in this image.</div>`;
+
+    // GPS
+    const gps = d.gps || {};
+    const gpsEl = document.getElementById('gpsBlock');
+    if (gps.latitude != null) {
+      gpsEl.innerHTML = `
+        <div class="gps-block">
+          <div class="gps-coords">
+            <div class="gps-coord-item">
+              <span class="gps-coord-label">Latitude</span>
+              <span class="gps-coord-val">${gps.latitude}</span>
+            </div>
+            <div class="gps-coord-item">
+              <span class="gps-coord-label">Longitude</span>
+              <span class="gps-coord-val">${gps.longitude}</span>
+            </div>
+            ${gps.altitude_m != null ? `
+            <div class="gps-coord-item">
+              <span class="gps-coord-label">Altitude</span>
+              <span class="gps-coord-val">${gps.altitude_m} m</span>
+            </div>` : ''}
+          </div>
+          ${gps.google_maps ? `<a class="gps-link" href="${gps.google_maps}" target="_blank">📍 Open in Google Maps</a>` : ''}
+        </div>`;
+    } else {
+      gpsEl.innerHTML = `<div class="gps-empty">✅ No GPS data found — location is not embedded.</div>`;
+    }
+
+    // Raw JSON
+    document.getElementById('rawBlock').textContent = JSON.stringify(d, null, 2);
+
+    results.style.display = 'block';
+  }
+
+  function formatExifVal(key, val) {
+    if (key === 'ExposureTime' && typeof val === 'number') {
+      return val < 1 ? `1/${Math.round(1/val)}s` : `${val}s`;
+    }
+    if (key === 'FNumber' && typeof val === 'number') return `f/${val}`;
+    if (key === 'FocalLength' && typeof val === 'number') return `${val} mm`;
+    if (Array.isArray(val)) return val.join(', ');
+    return String(val);
+  }
+
+  function toggleRaw() {
+    const block  = document.getElementById('rawBlock');
+    const toggle = document.getElementById('rawToggle');
+    const visible = block.classList.toggle('visible');
+    toggle.textContent = visible ? '▼ Hide raw JSON' : '▶ Show raw JSON';
+  }
+
+  function showStatus(type, msg) {
+    statusBar.className = 'status-bar ' + type;
+    statusSpinner.style.display = type === 'loading' ? 'block' : 'none';
+    statusText.textContent = msg;
+  }
+
+  function hideStatus() {
+    statusBar.className = 'status-bar';
+  }
+
+  let lastUploadedFile = null;
+
+async function eraseMetadata() {
+  if (!lastUploadedFile) return;
+
+  const btn    = document.getElementById('eraseBtn');
+  const status = document.getElementById('eraseStatus');
+
+  btn.disabled     = true;
+  btn.textContent  = '⏳ Erasing...';
+  status.className = 'erase-status';
+
+  const form = new FormData();
+  form.append('image', lastUploadedFile);
+
+  try {
+    const res = await fetch('/strip', { method: 'POST', body: form });
+
+    if (!res.ok) {
+      const data = await res.json();
+      status.className   = 'erase-status error';
+      status.textContent = '⚠ ' + (data.error || 'Something went wrong');
+      btn.disabled       = false;
+      btn.textContent    = '🧹 Erase metadata & download clean image';
+      return;
+    }
+
+    // Trigger download
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = 'clean_' + lastUploadedFile.name;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    status.className   = 'erase-status success';
+    status.textContent = '✅ Clean image downloaded — all metadata removed';
+    btn.textContent    = '🧹 Erase metadata & download clean image';
+    btn.disabled       = false;
+
+  } catch (err) {
+    status.className   = 'erase-status error';
+    status.textContent = '⚠ Could not reach server. Is app.py running?';
+    btn.disabled       = false;
+    btn.textContent    = '🧹 Erase metadata & download clean image';
+  }
+}
+
+  function reset() {
+    results.style.display = 'none';
+    uploadZone.style.display = 'block';
+    fileInput.value = '';
+    rawData = null;
+    hideStatus();
+  }
+</script>
+</body>
+</html>

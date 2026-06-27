@@ -1,0 +1,46 @@
+# Virtual Environment
+.venv/
+venv/
+env/
+.idea
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Uploaded / test images
+test_images/
+*.jpg
+*.jpeg
+*.png
+*.tiff
+*.tif
+*.webp
+*.heic
+*.bmp
+
+# Flask
+instance/
+.env
+flask_session/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Logs
+*.log
+
+# Distribution
+dist/
+build/
+*.egg-info/
