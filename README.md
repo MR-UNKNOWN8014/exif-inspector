@@ -1,6 +1,6 @@
 # EXIF Inspector
 
-A privacy-focused tool that extracts and visualizes image metadata (EXIF data) through a local web dashboard — with an option to erase all metadata from an image and download a clean copy.
+A privacy-focused tool that extracts and visualizes image metadata through a local web dashboard, with options to erase it (fully or selectively) and convert format on download.
 
 Built with Python, Flask, and Pillow. No data leaves your machine.
 
@@ -8,99 +8,122 @@ Built with Python, Flask, and Pillow. No data leaves your machine.
 
 ## What it does
 
-- Extracts EXIF metadata from uploaded images: camera model, lens settings, timestamps, software tags
-- Parses embedded GPS coordinates and generates a direct Google Maps link
-- Runs a **privacy risk assessment** — flags device fingerprints, GPS exposure, author fields
-- Lets you **erase all metadata** and download a clean version of the image
-- Works entirely locally — no cloud, no third-party APIs
+- Extracts EXIF and XMP metadata: camera model, lens settings, timestamps, software tags, GPS, author
+- Reads embedded GPS coordinates from either EXIF or XMP and generates a Google Maps link
+- Runs a privacy risk assessment: flags GPS exposure, device fingerprints, author fields, embedded preview thumbnails
+- Erases metadata, or keeps select fields (GPS, camera, author, software), and converts format on download
+- Batch mode: drop multiple images, download one zip of cleaned copies
+- Local scan history (opt-out) and a scriptable CLI for automation
+- Print-to-PDF report view
+- Optional HTTP Basic Auth for self-hosting beyond localhost
+- Works entirely locally, no cloud, no third-party APIs
 
----
+## Why this matters
 
-## Why this matters (security context)
-
-Every photo taken on a smartphone or DSLR embeds metadata into the file. This includes:
-
-- **Exact GPS coordinates** of where the photo was taken
-- **Device fingerprint** (make, model, software version)
-- **Timestamps** down to the second
-- **Author/copyright fields** that may contain real names
-
-Photos shared publicly on social media, forums, or emails can silently expose this data. This tool makes it visible — and gives you a one-click way to strip it before sharing.
+Every photo taken on a smartphone or DSLR embeds metadata into the file: exact GPS coordinates, device make/model, timestamps down to the second, and sometimes author/copyright fields with real names. That metadata can live in EXIF or XMP, and some of it survives in an embedded preview thumbnail even after the main image is edited. Sharing that photo publicly shares all of it, silently. This tool makes it visible and gives you control over what to strip.
 
 ---
 
 ## Project structure
 
 ```
-exif_inspector/
-├── exif_reader.py       # Core extraction and strip logic (no Flask dependency)
-├── app.py               # Flask server — /analyze and /strip routes
-├── dashboard.html       # Web UI — drag & drop, results, erase button
-├── test_exif_reader.py  # Unit tests for the extraction module
-├── requirements.txt     # Dependencies
-└── .gitignore
+exif-inspector/
+├── app.py               Flask server and routes
+├── exif_reader.py        Extraction, stripping, XMP parsing, CLI
+├── static/                Dashboard (HTML/CSS/JS)
+├── test_exif_reader.py   pytest suite
+├── Dockerfile
+├── requirements.txt
 ```
-
----
 
 ## Setup
 
 **Requirements:** Python 3.10+
 
 ```bash
-# 1. Clone the repo
 git clone https://github.com/MR-UNKNOWN8014/exif-inspector.git
 cd exif-inspector
 
-# 2. Create and activate virtual environment
 python -m venv .venv
+.venv\Scripts\Activate.ps1     # Windows
+source .venv/bin/activate      # macOS / Linux
 
-# Windows
-.venv\Scripts\Activate.ps1
-
-# macOS / Linux
-source .venv/bin/activate
-
-# 3. Install dependencies
 pip install -r requirements.txt
-
-# 4. Run the server
 python app.py
 ```
 
-Open your browser at `http://127.0.0.1:5000`
+Open `http://127.0.0.1:5000`.
+
+### Docker
+
+```bash
+docker build -t exif-inspector .
+docker run -p 5000:5000 exif-inspector
+```
+
+Runs as a non-root user, exposes a container `HEALTHCHECK` against `/health`.
+
+### Self-hosting (env vars)
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `HOST` | `127.0.0.1` | bind address (Docker sets `0.0.0.0`) |
+| `PORT` | `5000` | port |
+| `HISTORY_ENABLED` | `1` | set to `0` to disable the local scan history log entirely, including reading past entries |
+| `AUTH_USER` / `AUTH_PASS` | unset | set both to require HTTP Basic Auth on every route except `/health` |
+
+Auth is off by default, fine for `127.0.0.1`-only use. If you expose this beyond localhost, set `AUTH_USER`/`AUTH_PASS`. Basic Auth alone sends credentials in the clear, it needs a TLS-terminating reverse proxy (Caddy, nginx) in front of it for real exposure, it is not a substitute for TLS.
 
 ---
 
 ## Usage
 
-1. Drag and drop an image onto the dashboard (or click to browse)
-2. The tool extracts and displays:
-    - File info (name, size, format, last modified)
-    - Image info (dimensions, megapixels, color mode, DPI)
-    - Camera and capture settings (make, model, ISO, aperture, shutter speed)
-    - GPS location with Google Maps link (if embedded)
-    - Privacy risk level: **Low / Medium / High**
-3. Click **Erase metadata** to download a clean copy with all EXIF stripped
+1. Drop one or more images onto the dashboard (or click to browse). Multiple files switch to batch mode.
+2. Review file info, camera/capture settings, GPS location, and privacy risk level (Low / Medium / High).
+3. Optionally choose fields to keep and an output format, then click **erase metadata** to download a clean copy (a zip, in batch mode). These selections reset with every new image, nothing carries over by accident.
+4. Use **print / save as PDF** for a shareable summary.
+5. Open **show scan history** for a log of past analyze/strip actions (local only, opt-out via `HISTORY_ENABLED`).
 
----
+### Endpoints
+
+| Route | Method | Purpose |
+|---|---|---|
+| `/` | GET | dashboard |
+| `/analyze` | POST | `image` file, returns metadata JSON |
+| `/strip` | POST | `image` file, optional `format`/`quality`/`keep`, returns the cleaned file |
+| `/strip-batch` | POST | multiple `images` files, returns a zip |
+| `/history` | GET | last 50 logged actions |
+| `/health` | GET | liveness check, never behind auth |
+
+### CLI
+
+```bash
+python exif_reader.py photo.jpg                              # analyze, pretty JSON
+python exif_reader.py photo.jpg --json                        # analyze, compact JSON
+python exif_reader.py photo.jpg --strip --format png --output clean/
+python exif_reader.py photo.jpg --strip --keep gps --keep camera
+```
 
 ## Supported formats
 
-`JPG` · `JPEG` · `PNG` · `TIFF` · `TIF` · `WEBP` · `BMP` · `HEIC`
+Read: `JPG` `JPEG` `PNG` `TIFF` `TIF` `WEBP` `BMP` `HEIC`
+Convert to: `JPEG` `PNG` `WEBP` `BMP` `TIFF`
 
-Max file size: 20 MB
+Max file size: 20 MB, shared across the whole request in batch mode.
 
----
+## Testing
+
+```bash
+pip install pytest piexif
+python -m pytest test_exif_reader.py -q
+```
+
+`pytest` and `piexif` are test-only, not in `requirements.txt` since the app itself never imports them.
 
 ## Tech stack
 
-|Layer|Technology|
+| Layer | Technology |
 |---|---|
-|Backend|Python, Flask|
-|Image processing|Pillow (PIL)|
-|Frontend|Vanilla HTML/CSS/JS|
-|Routing|Flask Blueprints|
-
-
----
+| Backend | Python, Flask, Waitress (WSGI) |
+| Image processing | Pillow, pillow-heif |
+| Frontend | Vanilla HTML/CSS/JS |

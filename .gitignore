@@ -12,6 +12,7 @@ __pycache__/
 
 # Uploaded / test images
 test_images/
+history.jsonl
 *.jpg
 *.jpeg
 *.png

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EXIF Inspector</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+
+<header>
+  <div class="logo-group">
+    <div class="logo-text">exif<span>_inspector</span></div>
+    <div class="logo-tagline">metadata analysis, local only</div>
+  </div>
+  <div class="header-badge">v1.0.0 / local</div>
+</header>
+
+<main>
+
+  <div class="upload-zone" id="uploadZone">
+    <input type="file" id="fileInput" accept="image/*" multiple />
+    <div class="upload-label">drop image(s) or <span>browse files</span></div>
+    <div class="upload-hint">jpg &middot; png &middot; tiff &middot; webp &middot; bmp &middot; max 20 MB total</div>
+  </div>
+
+  <div class="status-bar" id="statusBar">
+    <div class="spinner" id="statusSpinner"></div>
+    <span id="statusText">Analyzing...</span>
+  </div>
+
+  <div id="results">
+
+    <div class="preview-box" id="previewBox" hidden>
+      <img id="previewImg" alt="Uploaded image preview" />
+    </div>
+
+    <div class="section-label">// privacy risk</div>
+    <div id="riskBanner"></div>
+
+    <div class="section-label">// file &amp; image</div>
+    <div class="stat-grid" id="statGrid"></div>
+
+    <div class="section-label">// camera &amp; capture</div>
+    <div id="exifTable"></div>
+
+    <div class="section-label">// gps location</div>
+    <div id="gpsBlock"></div>
+
+    <button class="btn-reset" onclick="window.print()">print / save as PDF</button>
+
+    <div class="section-label" id="actionsLabel">// actions</div>
+    <div id="eraseSection">
+      <div class="format-row">
+        <label class="format-label" for="formatSelect">output format</label>
+        <select id="formatSelect" class="format-select">
+          <option value="">keep original</option>
+          <option value="jpeg">JPEG</option>
+          <option value="png">PNG</option>
+          <option value="webp">WEBP</option>
+          <option value="bmp">BMP</option>
+          <option value="tiff">TIFF</option>
+        </select>
+        <label class="format-label" for="qualitySlider" id="qualityLabel" hidden>quality <span id="qualityValue">85</span></label>
+        <input type="range" id="qualitySlider" class="quality-slider" min="1" max="100" value="85" hidden />
+      </div>
+      <div class="keep-row">
+        <span class="format-label">keep fields</span>
+        <label class="keep-item"><input type="checkbox" class="keep-check" value="gps" /> GPS</label>
+        <label class="keep-item"><input type="checkbox" class="keep-check" value="artist" /> Artist/Copyright</label>
+        <label class="keep-item"><input type="checkbox" class="keep-check" value="camera" /> Camera</label>
+        <label class="keep-item"><input type="checkbox" class="keep-check" value="software" /> Software</label>
+      </div>
+      <button class="btn-erase" id="eraseBtn" onclick="eraseMetadata()">
+        erase metadata &amp; download clean image
+      </button>
+      <div class="erase-status" id="eraseStatus"></div>
+    </div>
+
+    <div class="raw-toggle" id="rawToggle" onclick="toggleRaw()">
+      <span id="rawToggleArrow">&#9654;</span> show raw JSON
+    </div>
+    <pre class="raw-block" id="rawBlock"></pre>
+
+    <button class="btn-reset" onclick="reset()">&larr; analyze another image</button>
+  </div>
+
+  <div id="batchResults" hidden>
+
+    <div class="section-label">// batch (<span id="batchCount">0</span> images)</div>
+    <div id="batchFileList"></div>
+
+    <div class="format-row">
+      <label class="format-label" for="batchFormatSelect">output format</label>
+      <select id="batchFormatSelect" class="format-select">
+        <option value="">keep original</option>
+        <option value="jpeg">JPEG</option>
+        <option value="png">PNG</option>
+        <option value="webp">WEBP</option>
+        <option value="bmp">BMP</option>
+        <option value="tiff">TIFF</option>
+      </select>
+      <label class="format-label" for="batchQualitySlider" id="batchQualityLabel" hidden>quality <span id="batchQualityValue">85</span></label>
+      <input type="range" id="batchQualitySlider" class="quality-slider" min="1" max="100" value="85" hidden />
+    </div>
+
+    <button class="btn-erase" id="batchStripBtn" onclick="stripBatch()">erase metadata for all &amp; download zip</button>
+    <div class="erase-status" id="batchStatus"></div>
+
+    <button class="btn-reset" onclick="reset()">&larr; analyze another image</button>
+  </div>
+
+  <div class="section-label" id="historyLabel">// history</div>
+  <div class="raw-toggle" id="historyToggle" onclick="toggleHistory()">
+    <span id="historyToggleArrow">&#9654;</span> show scan history
+  </div>
+  <div class="raw-block" id="historyBlock"></div>
+
+</main>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>

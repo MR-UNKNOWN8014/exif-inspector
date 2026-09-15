@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EXIF Inspector</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+<header>
+  <div class="logo-text">EXIF<span>Inspector</span></div>
+  <div class="header-badge">v1.0.0 LOCAL</div>
+</header>
+
+<main>
+
+  <div class="upload-zone" id="uploadZone">
+    <input type="file" id="fileInput" accept="image/*" />
+    <div class="upload-label">Drop an image here or <span>browse files</span></div>
+    <div class="upload-hint">Formats: JPG, PNG, TIFF, WEBP, BMP. Max 20 MB.</div>
+  </div>
+
+  <div class="status-bar" id="statusBar">
+    <div class="spinner" id="statusSpinner"></div>
+    <span id="statusText">Analyzing...</span>
+  </div>
+
+  <div id="results">
+
+    <div class="section-label">Privacy risk</div>
+    <div id="riskBanner"></div>
+
+    <div class="section-label">File and image</div>
+    <div class="stat-grid" id="statGrid"></div>
+
+    <div class="section-label">Camera and capture</div>
+    <div id="exifTable"></div>
+
+    <div class="section-label">GPS location</div>
+    <div id="gpsBlock"></div>
+
+    <div class="section-label">Actions</div>
+    <div class="actions-row">
+      <button class="btn btn-primary" id="eraseBtn" onclick="eraseMetadata()">Erase metadata and download clean image</button>
+      <button class="btn" onclick="reset()">Analyze another image</button>
+    </div>
+    <div class="erase-status" id="eraseStatus"></div>
+
+    <div class="raw-toggle" id="rawToggle" onclick="toggleRaw()">Show raw JSON</div>
+    <pre class="raw-block" id="rawBlock"></pre>
+
+  </div>
+
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
